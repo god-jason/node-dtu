@@ -12,24 +12,25 @@ const config = {
     },
     client: {
         id: "1234567890",
-        options: {
-            host: "iot.cloud-dian.cn",
-            port: 60010
-        }
+        host: "iot.cloud-dian.cn",
+        port: 60010
     }
 }
 
 
 const serial = new SerialPort(config.serial);
+let serial_connected = false
 
-const client = net.createConnection(config.client.options)
+const client = net.createConnection(config.client)
+let client_connected = false;
 
+
+//TCP相关事件处理
 
 client.on('connect', (socket) => {
     console.log("tcp connected")
-    client.write(config.client.id, err => {
-        if (err) console.error(err)
-    })
+    client_connected = true;
+    client.write(config.client.id)
 })
 
 client.on('data', data => {
@@ -41,18 +42,20 @@ client.on('error', err => {
 })
 client.on('end', () => {
     console.log("tcp end")
+    client_connected = false;
 })
 client.on('close', () => {
     console.log("tcp close")
-    //重连
-    setTimeout(() => {
-        client.connect(config.client.options)
-    }, 5000)
+    client_connected = false;
+
 })
 
 
+//串口相关事件处理
+
 serial.on('open', () => {
     console.log("serial open")
+    serial_connected = true;
 });
 
 serial.on('data', data => {
@@ -65,6 +68,18 @@ serial.on('error', (err) => {
 });
 
 serial.on('close', () => {
-    //process.exit(0);
     console.log("serial close")
+    serial_connected = false;
 })
+
+
+
+//自动重连
+setInterval(() => {
+    if (!serial_connected) {
+        serial.open()
+    }
+    if (!client_connected) {
+        client.connect(config.client)
+    }
+}, 5000)
